@@ -5,6 +5,9 @@ on:
     - cron: "0 6 * * *"   # 6:00 UTC, ~1-2am ET
   workflow_dispatch: {}    # manual run button
 
+permissions:
+  contents: write          # lets the job commit the Klaviyo feed file
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -18,8 +21,14 @@ jobs:
         env:
           SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
           SHOPIFY_ADMIN_TOKEN: ${{ secrets.SHOPIFY_ADMIN_TOKEN }}
-          KLAVIYO_API_KEY: ${{ secrets.KLAVIYO_API_KEY }}
-        run: python -m src.main --source api --write-shopify --write-klaviyo --out out
+        run: python -m src.main --source api --write-shopify --out out
+      - name: Commit Klaviyo feed (served as a Klaviyo web feed)
+        run: |
+          git config user.name "recs-bot"
+          git config user.email "actions@github.com"
+          git add feed/klaviyo_recs_feed.json
+          git diff --cached --quiet || git commit -m "Update Klaviyo recs feed"
+          git push
       - name: Upload outputs (preview + families needing review)
         if: always()
         uses: actions/upload-artifact@v4
