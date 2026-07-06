@@ -1,0 +1,29 @@
+name: Nightly recommendation sync
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 6:00 UTC, ~1-2am ET
+  workflow_dispatch: {}    # manual run button
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Run sync
+        env:
+          SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
+          SHOPIFY_ADMIN_TOKEN: ${{ secrets.SHOPIFY_ADMIN_TOKEN }}
+          KLAVIYO_API_KEY: ${{ secrets.KLAVIYO_API_KEY }}
+        run: python -m src.main --source api --write-shopify --write-klaviyo --out out
+      - name: Upload outputs (preview + families needing review)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recommendation-outputs
+          path: out/
+          retention-days: 30
