@@ -171,11 +171,22 @@ def main():
                        recs, products_by_id, cfg["klaviyo_recs_per_product"])
 
     # 4. Writes
+    missing_stone = sum(1 for p in products if not p.stone)
+    missing_metal = sum(1 for p in products if not p.metal)
     summary = [f"Products: {len(products)}",
                f"Products with recommendations: {with_recs}",
                f"Style families needing review: {len(review)}",
-               f"Products without derivable category: {uncategorized}"]
+               f"Products without derivable category: {uncategorized}",
+               f"Products missing stone metafield: {missing_stone}",
+               f"Products missing metal metafield: {missing_metal}"]
     failed = False
+    # Tripwire: if the primary signal is missing on most of the catalog, the
+    # scoring would silently degrade to category/price. Refuse to write.
+    if len(products) > 0 and missing_stone > len(products) * 0.5 \
+            and (args.write_shopify or args.write_klaviyo):
+        print("ABORT: stone metafield missing on >50% of products; "
+              "refusing to write degraded recommendations.\n" + "\n".join(summary))
+        sys.exit(1)
     if args.write_shopify:
         written, errors = shopify.write_related_products(recs, products_by_id)
         summary.append(f"Shopify related_products written: {written}")

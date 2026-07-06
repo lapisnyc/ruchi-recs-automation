@@ -24,10 +24,7 @@ query($cursor: String) {
       featuredMedia { preview { image { url } } }
       priceRangeV2 { minVariantPrice { amount } }
       metafields(first: 10, keys: ["custom.stone", "custom.metal_color", "custom.style", "custom.style_color"]) {
-        nodes {
-          key
-          reference { ... on Metaobject { handle type } }
-        }
+        nodes { key value }
       }
     }
   }
@@ -78,8 +75,9 @@ class ShopifyClient:
             data = self._gql(PRODUCTS_QUERY, {"cursor": cursor})
             page = data["products"]
             for node in page["nodes"]:
-                metas = {m["key"]: (m.get("reference") or {}).get("handle")
-                         for m in node["metafields"]["nodes"]}
+                # value is the metaobject GID string; equality comparison is all
+                # scoring needs, and reading it requires no extra API scopes
+                metas = {m["key"]: m.get("value") for m in node["metafields"]["nodes"]}
                 price = node.get("priceRangeV2", {}).get("minVariantPrice", {}).get("amount")
                 media = node.get("featuredMedia") or {}
                 image = ((media.get("preview") or {}).get("image") or {}).get("url", "")
