@@ -37,7 +37,10 @@ class KlaviyoClient:
             "type": "catalog-item",
             "attributes": {
                 "external_id": product.id,
+                "integration_type": "$custom",
+                "catalog_type": "$default",
                 "title": product.title,
+                "description": product.title,
                 "url": product.url,
                 "image_full_url": product.image or None,
                 "price": product.price,
@@ -59,8 +62,8 @@ class KlaviyoClient:
                 continue
             if resp.status_code in (200, 201, 202):
                 return resp.json()["data"]["id"]
-            # 409 on create means items exist -> caller falls back to update
-            resp.raise_for_status()
+            # Surface Klaviyo's explanation (scope, plan, payload...), not just the code
+            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:300]}")
         raise RuntimeError("Klaviyo rate-limited after retries")
 
     def sync(self, recs: dict[str, list[Product]],
