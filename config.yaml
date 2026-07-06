@@ -1,0 +1,72 @@
+# Recommendation engine configuration
+# Priority order: stone > metal > style family > price.
+# Weights enforce strict hierarchy: a stone match (8) always outranks
+# metal (4) + family (2) + price (1) combined (7).
+
+weights:
+  stone_and_metal: 16  # tier 1: BOTH stone and metal color match
+  stone_only: 6        # partial tier-1 credit (stone matches, metal doesn't)
+  metal_only: 3        # partial tier-1 credit (metal matches, stone doesn't)
+  category: 8          # tier 2: same category (earrings, rings, ...)
+  style_family: 4      # tier 3: same design name (Silla, Arles, ...)
+  price_band: 1        # tier 4: within price_band_ratio of target price
+  price_band_near: 0.5 # within price_band_near_ratio
+
+# Category is read from the product's category (Shopify taxonomy) when specific,
+# otherwise derived from title keywords below (checked in order).
+category_keywords:
+  Earrings: [earrings, earring, hoops, hoop, studs, stud, huggie, huggies, drops, jackets]
+  Rings: [ring, rings, band, bands]
+  Necklaces: [necklace, pendant, choker, lariat, collar]
+  Bracelets: [bracelet, bangle, cuff]
+
+price_band_ratio: 1.3       # +/-30% counts as same price point
+price_band_near_ratio: 1.6  # +/-60% counts as near
+price_ratio_cap: 2.5        # hard exclude candidates whose price differs by more than 2.5x
+price_cap_family_exempt: true   # same style family bypasses the cap ("complete the look")
+price_ratio_cap_family: 6.0     # ...but not beyond this extreme gap
+
+recommendations_per_product: 10   # written to Shopify (theme shows up to 15)
+klaviyo_recs_per_product: 4       # synced to Klaviyo custom catalog
+
+exclude_zero_inventory: true
+
+shopify:
+  api_version: "2026-04"
+  metafield_namespace: "shopify--discovery--product_recommendation"
+  metafield_key: "related_products"   # switch to "complementary_products" if theme uses intent=complementary
+  batch_size: 25                      # metafieldsSet max per call
+
+klaviyo:
+  api_revision: "2025-07-15"
+  catalog_prefix: "$custom:::$default:::"
+  bulk_batch_size: 100
+
+# First words of titles that are NOT style family names (stones, colors, generic words).
+# Products starting with these get no family unless listed in data/style_family_overrides.csv
+generic_first_words:
+  - A
+  - The
+  - Diamond
+  - Diamonds
+  - Emerald
+  - Ruby
+  - Sapphire
+  - Opal
+  - Pearl
+  - Tanzanite
+  - Paraiba
+  - Blue
+  - Pink
+  - White
+  - Yellow
+  - Black
+  - Green
+  - Gold
+  - Jewels
+  - Ice
+  - Love
+  - Mini
+  - Petite
+  - Grand
+  - Grande
