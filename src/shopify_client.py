@@ -23,8 +23,8 @@ query($cursor: String) {
       category { name }
       featuredMedia { preview { image { url } } }
       priceRangeV2 { minVariantPrice { amount } }
-      metafields(first: 10, keys: ["custom.stone", "custom.metal_color", "custom.style", "custom.style_color"]) {
-        nodes { key value }
+      metafields(first: 30) {
+        nodes { namespace key value }
       }
     }
   }
@@ -75,9 +75,11 @@ class ShopifyClient:
             data = self._gql(PRODUCTS_QUERY, {"cursor": cursor})
             page = data["products"]
             for node in page["nodes"]:
-                # value is the metaobject GID string; equality comparison is all
-                # scoring needs, and reading it requires no extra API scopes
-                metas = {m["key"]: m.get("value") for m in node["metafields"]["nodes"]}
+                # Fetch all metafields and filter client-side (the server-side
+                # keys filter proved unreliable). value is the metaobject GID
+                # string; equality comparison is all scoring needs.
+                metas = {f'{m["namespace"]}.{m["key"]}': m.get("value")
+                         for m in node["metafields"]["nodes"]}
                 price = node.get("priceRangeV2", {}).get("minVariantPrice", {}).get("amount")
                 media = node.get("featuredMedia") or {}
                 image = ((media.get("preview") or {}).get("image") or {}).get("url", "")
@@ -85,9 +87,9 @@ class ShopifyClient:
                     id=str(node["legacyResourceId"]),
                     handle=node["handle"],
                     title=node["title"],
-                    stone=metas.get("stone"),
-                    metal=metas.get("metal_color"),
-                    style=metas.get("style"),
+                    stone=metas.get("custom.stone"),
+                    metal=metas.get("custom.metal_color"),
+                    style=metas.get("custom.style"),
                     price=float(price) if price else None,
                     available=(node.get("totalInventory") or 0) > 0,
                     category=(node.get("category") or {}).get("name"),
