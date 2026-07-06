@@ -103,6 +103,23 @@ def write_preview_csv(path: str, recs: dict, products_by_id: dict):
                             rank, r.title, r.stone, r.metal, r.category, r.family, r.price])
 
 
+def write_klaviyo_feed(path: str, recs: dict, products_by_id: dict, n: int):
+    """JSON web feed keyed by product id: templates use feeds.X|lookup:ProductID."""
+    import json
+    feed = {}
+    for pid, rec_products in recs.items():
+        if not rec_products:
+            continue
+        feed[pid] = [{
+            "title": r.title,
+            "url": r.url,
+            "image": r.image,
+            "price": f"${r.price:,.0f}" if r.price else "",
+        } for r in rec_products[:n]]
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(feed, f, separators=(",", ":"))
+
+
 def write_review_csv(path: str, rows: list[dict]):
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["handle", "title", "suggested_family", "reason"])
@@ -149,6 +166,9 @@ def main():
     recs = build_recommendations(products, cfg)
     with_recs = sum(1 for v in recs.values() if v)
     write_preview_csv(os.path.join(args.out, "recommendations_preview.csv"), recs, products_by_id)
+    os.makedirs(os.path.join(HERE, "feed"), exist_ok=True)
+    write_klaviyo_feed(os.path.join(HERE, "feed", "klaviyo_recs_feed.json"),
+                       recs, products_by_id, cfg["klaviyo_recs_per_product"])
 
     # 4. Writes
     summary = [f"Products: {len(products)}",
