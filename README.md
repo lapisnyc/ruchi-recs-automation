@@ -72,35 +72,43 @@ export SHOPIFY_STORE=... SHOPIFY_ADMIN_TOKEN=... KLAVIYO_API_KEY=...
 python -m src.main --source api --write-shopify --write-klaviyo --out out
 ```
 
-## Using the recommendations in Klaviyo emails
+## Using the recommendations in Klaviyo emails (web feed)
 
-Each Shopify product exists in the Klaviyo custom catalog with id
-`$custom:::$default:::<shopify_product_id>` and custom fields
-`rec1_title`, `rec1_url`, `rec1_image`, `rec1_price` ... through `rec4_*`.
+Klaviyo blocks its catalog write API on accounts with an active Shopify catalog
+sync ("You have at least one active Catalog Sync"), so recommendations are
+delivered as a **web feed** instead. Each nightly run commits
+`feed/klaviyo_recs_feed.json` to this repo: a JSON object keyed by Shopify
+product id, each value a list of recs with `title`, `url`, `image`, `price`.
 
-In a flow triggered by a product event (e.g. Viewed Product), look the item up
-and render the recs. Example block:
+### One-time Klaviyo setup
+1. Make the feed URL publicly reachable. Easiest: make this repo public
+   (it contains only code and already-public product data), giving:
+   `https://raw.githubusercontent.com/<user>/<repo>/main/feed/klaviyo_recs_feed.json`
+   If the repo must stay private, publish the feed file to a separate tiny public
+   repo instead.
+2. Klaviyo > Settings > Other > Web feeds > Add web feed:
+   name `RuchiRecs`, the URL above, method GET, content type JSON.
 
+### In a flow email (e.g. Viewed Product / browse abandonment)
 ```django
-{% catalog "$custom:::$default:::{{ event.ProductID }}" unpublished "false" %}
+{% with recs=feeds.RuchiRecs|lookup:event.ProductID %}
   <table><tr>
-    <td><a href="{{ catalog_item.metadata.rec1_url }}">
-      <img src="{{ catalog_item.metadata.rec1_image }}" width="140"><br>
-      {{ catalog_item.metadata.rec1_title }}<br>{{ catalog_item.metadata.rec1_price }}</a></td>
-    <td><a href="{{ catalog_item.metadata.rec2_url }}">
-      <img src="{{ catalog_item.metadata.rec2_image }}" width="140"><br>
-      {{ catalog_item.metadata.rec2_title }}<br>{{ catalog_item.metadata.rec2_price }}</a></td>
+    {% for r in recs %}
+      <td align="center"><a href="{{ r.url }}">
+        <img src="{{ r.image }}" width="140"><br>
+        {{ r.title }}<br>{{ r.price }}</a></td>
+    {% endfor %}
   </tr></table>
-{% endcatalog %}
+{% endwith %}
 ```
 
 Notes:
-- The event property holding the product id varies by flow trigger (`event.ProductID`
-  for Klaviyo's Shopify Viewed Product; check the event payload in Klaviyo). Adjust the lookup key accordingly.
-- For campaigns (no triggering event), first add a flow step that writes the Viewed Product
-  id to a profile property (e.g. `Last Viewed Product ID`), then key the lookup on
-  `person|lookup:'Last Viewed Product ID'`.
-- Preview with a real profile before sending; Klaviyo renders catalog lookups at send time.
+- The event property holding the product id varies by flow trigger
+  (`event.ProductID` for Shopify Viewed Product; check the event payload). Adjust the lookup key.
+- For campaigns (no triggering event), first add a flow step that writes the
+  Viewed Product id to a profile property (e.g. `Last Viewed Product ID`), then
+  use `feeds.RuchiRecs|lookup:person|lookup:'Last Viewed Product ID'`.
+- Preview with a real profile before sending; feeds are fetched at send time.
 
 ## Configuration
 
